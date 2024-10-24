@@ -6,7 +6,7 @@ import numpy as np
 import streamlit as st
 from dotenv import load_dotenv
 from langchain.embeddings import HuggingFaceEmbeddings
-from docx import Document
+from docx import Document as DocxDocument
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
@@ -16,7 +16,8 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 from reportlab.lib.units import inch
 from reportlab.lib.styles import ParagraphStyle
 import base64
-import fitz  # PyMuPDF for extracting text from PDFs
+import fitz  
+from docx import Document  
 
 # Load environment variables
 load_dotenv()
@@ -166,7 +167,7 @@ def retrieve_chunk_and_generate_question(project_area_embedding):
 from datetime import datetime
 
 def save_conversation_to_word(conversation, project_scope, filename_prefix="report"):
-    doc = Document()
+    doc = DocxDocument()
     
     # Add project scope as the heading
     doc.add_heading(f"{project_scope}", 0)
@@ -220,6 +221,11 @@ def save_conversation_to_pdf(conversation, project_scope, filename_prefix="repor
     pdf.build(elements)
     return formatted_filename
 
+# Function to extract text from Word document
+def extract_text_from_word(docx_file):
+    doc = DocxDocument(docx_file)
+    return '\n'.join([para.text for para in doc.paragraphs])
+
 # Initialize session state variables if not already present
 if 'total_questions' not in st.session_state:
     st.session_state.total_questions = 3  # Control how many questions before "more questions"
@@ -266,21 +272,27 @@ for message in st.session_state.conversation:
     st.markdown("<hr>", unsafe_allow_html=True)
 
 if st.session_state.conversation and st.session_state.show_input_area and not st.session_state.ask_more_questions and not st.session_state.end_session:
-    # Add option for uploading a file (PDF) or entering text
-    input_method = st.radio("How would you like to answer?", ["Text Entry", "Upload PDF"])
+    # Add option for uploading a file (PDF/Word) or entering text
+    input_method = st.radio("How would you like to answer?", ["Text Entry", "Upload Document"])
 
     if input_method == "Text Entry":
         user_response = st.text_area("Type your response here:", key="user_input")
-    elif input_method == "Upload PDF":
-        uploaded_file = st.file_uploader("Upload PDF", type="pdf")
+    elif input_method == "Upload Document":
+        uploaded_file = st.file_uploader("Upload File (PDF or Word)", type=["pdf", "docx"])
 
         if uploaded_file is not None:
-            with fitz.open(stream=uploaded_file.read(), filetype="pdf") as pdf:
-                user_response = ""
-                for page in pdf:
-                    user_response += page.get_text()
+            if uploaded_file.type == "application/pdf":
+                # Extract text from PDF
+                with fitz.open(stream=uploaded_file.read(), filetype="pdf") as pdf:
+                    user_response = ""
+                    for page in pdf:
+                        user_response += page.get_text()
 
-            st.write("Text extracted from PDF:")
+            elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                # Extract text from Word document
+                user_response = extract_text_from_word(uploaded_file)
+
+            st.write("Text extracted from file:")
             st.write(user_response)
 
     if st.button("Send"):
