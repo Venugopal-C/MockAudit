@@ -11,3 +11,4 @@ python-dotenv
 python-docx
 reportlab
 fitz
+frontend
