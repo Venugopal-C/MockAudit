@@ -9,6 +9,7 @@ faiss-cpu
 sentence-transformers
 python-dotenv
 python-docx
+fpdf
 reportlab
-frontend
 pymupdf
+openai==0.28
